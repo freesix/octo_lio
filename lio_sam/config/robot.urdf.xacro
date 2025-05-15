@@ -1,0 +1,45 @@
+<?xml version="1.0"?>
+<robot name="lio" xmlns:xacro="http://tixiaoshan.github.io/">
+  <xacro:property name="PI" value="3.1415926535897931" />
+
+  <link name="odom"></link>
+
+  <link name="base_link"></link>
+  <joint name="base_link_joint" type="fixed">
+    <parent link="odom"/>
+    <child link="base_link" />
+    <origin xyz="0 0 0" rpy="0 0 0" />
+  </joint>
+
+  <link name="livox_frame"> </link>
+  <joint name="lidar_joint" type="fixed">
+    <parent link="base_link" />
+    <child link="livox_frame" />
+    <origin xyz="0.15 0 0.1" rpy="0 0 0" />
+  </joint>
+
+  <link name="camera_left_depth_optical_frame"> </link>
+  <joint name="camera_left_joint" type="fixed">
+    <parent link="base_link" />
+    <child link="camera_left_depth_optical_frame" />
+    <origin xyz="0.266842719249179 0.0881830869392123 0.0807512430601606" 
+            rpy="-2.00712863979348 0 -1.13446401379631" />
+  </joint> 
+
+  <link name="camera_right_depth_optical_frame"> </link>
+    <joint name="camera_right_joint" type="fixed">
+      <parent link="base_link" />
+      <child link="camera_right_depth_optical_frame" />
+      <origin xyz="0.287973632336214 -0.0428676975873733 0.0807512430601605" 
+              rpy="-2.00712863979348 0 -2.00712863979348" />
+    </joint> 
+
+   
+  <link name="navsat_link"> </link>
+  <joint name="navsat_joint" type="fixed">
+    <parent link="base_link" />
+    <child link="navsat_link" />
+    <origin xyz="0 0 0" rpy="0 0 0" />
+  </joint>
+
+</robot>
