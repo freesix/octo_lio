@@ -119,6 +119,7 @@ public:
     pcl::KdTreeFLANN<PointType>::Ptr kdtreeSurfFromMap;
     pcl::KdTreeFLANN<PointType>::Ptr kdtreeSurroundingKeyPoses;
     pcl::KdTreeFLANN<PointType>::Ptr kdtreeHistoryKeyPoses;
+    pcl::KdTreeFLANN<PointType>::Ptr kdtreePriorPosesGraph; // 只在初始化时构建
     pcl::VoxelGrid<PointType> downSizeFilterCorner;
     pcl::VoxelGrid<PointType> downSizeFilterSurf;
     pcl::VoxelGrid<PointType> downSizeFilterICP;
@@ -127,7 +128,7 @@ public:
     rclcpp::Time timeLaserInfoStamp;
     double timeLaserInfoCur;
     float transformTobeMapped[6];
-    float copy_transformTobeMapped[6]; 
+    float copy_transformTobeMapped[6];  // 用于全局定位线程
 
     std::mutex mtx;  // 点云信息回调函数锁
     std::mutex mtxLoopInfo; // 回环检测线程锁
@@ -287,17 +288,17 @@ public:
         downSizeFilterICP.setLeafSize(mappingSurfLeafSize, mappingSurfLeafSize, mappingSurfLeafSize);
         downSizeFilterSurroundingKeyPoses.setLeafSize(surroundingKeyframeDensity, surroundingKeyframeDensity, surroundingKeyframeDensity); // for surrounding key poses of scan-to-map optimization
 
-        loadSCDDirectory = std::getenv("HOME") + savePCDDirectory + "SCDs/";
-        loadNodePCDDirectory = std::getenv("HOME") + savePCDDirectory + "Scans/";
+        loadSCDDirectory = std::getenv("HOME") + savePCDDirectory + "SCDs/";    // 描述子文件夹
+        loadNodePCDDirectory = std::getenv("HOME") + savePCDDirectory + "Scans/";   // 关键帧夹
         int count = 0;
-        for(const auto &entry : std::filesystem::directory_iterator(loadSCDDirectory)){
+        for(const auto &entry : std::filesystem::directory_iterator(loadSCDDirectory)){ // 遍历描述子文件夹，获取描述子数量
             if(std::filesystem::is_regular_file(entry)){count++;} 
         }
-        for(int i=0; i<count; ++i){
+        for(int i=0; i<count; ++i){ // 循环读取描述子
             std::string filename = padZeros(i);
-            std::string scd_path = loadSCDDirectory + filename + ".scd";
+            std::string scd_path = loadSCDDirectory + filename + ".scd";    // 描述子文件名拼接
             Eigen::MatrixXd load_sc;
-            loadSCD(scd_path, load_sc);
+            loadSCD(scd_path, load_sc); // 读取描述子
             // std::cout << "load_sc: \n" << load_sc << endl;
 
             // load key
@@ -312,8 +313,8 @@ public:
         }
         const float kSCFilterSize = 0.5;
         downSizeFilterSC.setLeafSize(kSCFilterSize, kSCFilterSize, kSCFilterSize);
-        loadPosesDirectory = std::getenv("HOME") + savePCDDirectory + "singlesession_posegraph.txt";
-        loadPoses(loadPosesDirectory, matrix_poses);
+        loadPosesDirectory = std::getenv("HOME") + savePCDDirectory + "singlesession_posegraph.txt"; //位姿图
+        loadPoses(loadPosesDirectory, matrix_poses);    // 加载位姿图矩阵
          // std::cout << "marix_poses: \n" << matrix_poses << endl;
 
         allocateMemory();
@@ -335,6 +336,7 @@ public:
 
         kdtreeSurroundingKeyPoses.reset(new pcl::KdTreeFLANN<PointType>());
         kdtreeHistoryKeyPoses.reset(new pcl::KdTreeFLANN<PointType>());
+        kdtreePriorPosesGraph.reset(new pcl::KdTreeFLANN<PointType>());
 
         laserCloudCornerLast.reset(new pcl::PointCloud<PointType>()); // corner feature set from odoOptimization
         laserCloudSurfLast.reset(new pcl::PointCloud<PointType>()); // surf feature set from odoOptimization
@@ -384,11 +386,15 @@ public:
         RCLCPP_INFO(get_logger(), "test 0.01 the size of global cloud: %i", cloudGlobalMap->points.size());
         RCLCPP_INFO(get_logger(), "test 0.02 the size of global cloud: %i", cloudGlobalMapDS->points.size());
     }
-
+    /**
+     * @brief 重定位初始化
+     */
     void SystemInit(){
-        if(initializedFlag == NonInitialized || initializedFlag == Initializing){
+        if(initializedFlag == NonInitialized){   // 重定位状态
+            // 用于重定位的点云是否为空，为空则进行重定位，暂时只用了一帧用于重定位
+            // 正确逻辑是重定位失败，清空重新重定位
             if(cloudScanForInitialize->points.size() == 0){
-                downsampleCurrentScan();
+                downsampleCurrentScan();    // 对当前帧的点云，角点点云，平面点云做降采样
                 mtx_general.lock();
                 *cloudScanForInitialize += *laserCloudCornerLastDS;
                 *cloudScanForInitialize += *laserCloudSurfLastDS;
@@ -397,7 +403,7 @@ public:
                 laserCloudSurfLastDS->clear();
                 laserCloudCornerLastDSNum = 0;
                 laserCloudSurfLastDSNum = 0;
-
+                // ! 重定位过程中移动本体，这个imu给的初始姿态是否还有用？会产生多大影响？
                 transformTobeMapped[0] = cloudInfo.imu_roll_init;
                 transformTobeMapped[1] = cloudInfo.imu_pitch_init;
                 transformTobeMapped[2] = cloudInfo.imu_yaw_init;
@@ -406,7 +412,7 @@ public:
                 }
                 pcl::PointCloud<PointType>::Ptr thisRawCloudKeyFrame(new pcl::PointCloud<PointType>());
                 pcl::copyPointCloud(*laserCloudRawDS, *thisRawCloudKeyFrame);
-                scManager.makeAndSaveScancontextAndKeys(*thisRawCloudKeyFrame);
+                scManager.makeAndSaveScancontextAndKeys(*thisRawCloudKeyFrame); // 当前帧点云生成SC
 
                 performSCLoopClosure();
                  
@@ -636,27 +642,41 @@ public:
         downSizeFilterGlobalMapKeyFrames.filter(*globalMapKeyFramesDS);
         publishCloud(pubLaserCloudSurround, globalMapKeyFramesDS, timeLaserInfoStamp, odometryFrame);
     }
-
+    /**
+     * @brief 这是全局重定位线程，和前面SC重定位初始化耦合。
+     * 1、SC重定位和这里的ICPLocalizeInitialize()同时进行
+     *  1.1、SC重定位成功，这里会再做精细化和全局地图匹配，成功则重定位初始化完成，不再进行SC和ICPLocalizeInitialize() 
+     *  1.2、有一种可能这里的ICP直接成功，也跳出重定位初始化
+     * 2、第二个if可用作重定位初始化匹配失败的回退
+     * 3、最后一个if就是按照一定频率用当前帧和全局地图做匹配定位，可分不同模式
+     *  3.1、将这个匹配关系作为类似回环检测那种加入前面的slam建图
+     *  3.2、纯定位，不再需要slam建图，固定先验地图，这也是工程化用得多，因为前面的模式地图会随着优化过程有回环、偏移矫正等，
+     *      在导航任务中纪录的导航点就会发生变化。
+     *  3.3、两者同时用，但分离，纯定位用作导航任务，slam用作隐图、地图扩建等功能
+     * *目前功能没完善，三种都不是-^_^-
+     */
     void globalLocalizeThread(){
         while(rclcpp::ok()){
             if(initializedFlag == NonInitialized){
-                RCLCPP_DEBUG(get_logger(), "Attempt to relocalize!");
-                ICPLocalizeInitialize(); 
+                RCLCPP_INFO(get_logger(), "SC is Attempting to relocalized!");
+                rclcpp::sleep_for(std::chrono::seconds(1)); 
             }
             else if(initializedFlag == Initializing){
                 RCLCPP_INFO(get_logger(), "Offer a new Guess Please");
                 rclcpp::sleep_for(std::chrono::seconds(1)); 
+                ICPLocalizeInitialize(); 
             }
             else{
-                rclcpp::sleep_for(std::chrono::seconds(1));
+                rclcpp::sleep_for(std::chrono::seconds(10));
                 RCLCPP_INFO(get_logger(), "Localization"); 
-                // ICPscanMatchGlobal();
+                ICPscanMatchGlobal();
                 publishCloud(pubMapWorld, cloudGlobalMapDS, timeLaserInfoStamp, "map");
             }  
         } 
     }
 
     void ICPscanMatchGlobal(){
+        // 如果关键帧为空
         if(cloudKeyPoses3D->points.empty() == true){
             return; 
         }
@@ -664,10 +684,17 @@ public:
         mtx.lock();
         *copy_cloudKeyPoses3D = *cloudKeyPoses3D;
         *copy_cloudKeyPoses6D = *cloudKeyPoses6D;
-        for(int i=0; i<6; ++i){
-            copy_transformTobeMapped[i] = transformTobeMapped[i]; 
-        }
-        int latestFrameID = copy_cloudKeyPoses3D->size()-1; 
+        // for(int i=0; i<6; ++i){
+            // copy_transformTobeMapped[i] = transformTobeMapped[i];   // odom->lidar 
+        // }
+        int latestFrameID = copy_cloudKeyPoses3D->size()-1;
+        auto latestKeyPose6D = copy_cloudKeyPoses6D->points[latestFrameID];
+        copy_transformTobeMapped[0] = latestKeyPose6D.roll;
+        copy_transformTobeMapped[1] = latestKeyPose6D.pitch;
+        copy_transformTobeMapped[2] = latestKeyPose6D.yaw;
+        copy_transformTobeMapped[3] = latestKeyPose6D.x;
+        copy_transformTobeMapped[4] = latestKeyPose6D.y;
+        copy_transformTobeMapped[5] = latestKeyPose6D.z;
         pcl::PointCloud<PointType>::Ptr laserCloudIn(new pcl::PointCloud<PointType>());
         *laserCloudIn += *transformPointCloud(cornerCloudKeyFrames[latestFrameID],
             &copy_cloudKeyPoses6D->points[latestFrameID]);
@@ -678,19 +705,25 @@ public:
 
         pcl::NormalDistributionsTransform<PointType, PointType> ndt;
         ndt.setTransformationEpsilon(0.01);
-        ndt.setResolution(1.0);
+        ndt.setResolution(0.5);
 
         pcl::IterativeClosestPoint<PointType, PointType> icp;
-        icp.setMaxCorrespondenceDistance(100);
+        icp.setMaxCorrespondenceDistance(1.0);
         icp.setMaximumIterations(100);
-        icp.setTransformationEpsilon(1e-6);
-        icp.setEuclideanFitnessEpsilon(1e-6);
-        icp.setRANSACIterations(0);
+        icp.setTransformationEpsilon(1e-8);
+        icp.setEuclideanFitnessEpsilon(1e-7);
+        icp.setRANSACIterations(50);
 
-        Eigen::Affine3f transToOdom_temp = pcl::getTransformation(copy_transformTobeMapped[3], copy_transformTobeMapped[4], copy_transformTobeMapped[5], copy_transformTobeMapped[0], copy_transformTobeMapped[1], copy_transformTobeMapped[2]);
-        Eigen::Matrix4f matrixInitGuess = transToOdom_temp.matrix();
+        mtxtranformOdomToWorld.lock();
+        Eigen::Affine3f OdomPose6DInWorld = trans2Affine3f(transformOdomToWorld);
+        mtxtranformOdomToWorld.unlock();
 
-        ndt.setInputSource(laserCloudIn);
+        Eigen::Affine3f transToOdom_temp = trans2Affine3f(copy_transformTobeMapped);
+        
+        Eigen::Matrix4f matrixInitGuess = (OdomPose6DInWorld * transToOdom_temp).matrix();
+        // Eigen::Matrix4f matrixInitGuess = transToOdom_temp.matrix();
+
+        ndt.setInputSource(laserCloudIn);   // lidar坐标系下点云
         ndt.setInputTarget(cloudGlobalMapDS);
         pcl::PointCloud<PointType>::Ptr result_ndt(new pcl::PointCloud<PointType>());
         ndt.align(*result_ndt, matrixInitGuess);
@@ -700,27 +733,39 @@ public:
         pcl::PointCloud<PointType>::Ptr result_icp(new pcl::PointCloud<PointType>());
         icp.align(*result_icp, ndt.getFinalTransformation());
 
-        RCLCPP_INFO_STREAM(get_logger(), "ICP converg flag: " << icp.hasConverged() <<
-            ". Fitness score: " << icp.getFitnessScore());
+        // RCLCPP_INFO_STREAM(get_logger(), "ICP converg flag: " << icp.hasConverged() <<
+            // ". Fitness score: " << icp.getFitnessScore());
 
-        Eigen::Affine3f transodomToWorld_New;
-        transodomToWorld_New = icp.getFinalTransformation();
-        float x, y, z, roll, pitch, yaw;
-        pcl::getTranslationAndEulerAngles(transodomToWorld_New, x, y, z, roll, pitch, yaw);
-
-        mtxtranformOdomToWorld.lock();
-        transformOdomToWorld[0] = roll;
-        transformOdomToWorld[1] = pitch;
-        transformOdomToWorld[2] = yaw;
-        transformOdomToWorld[3] = x;
-        transformOdomToWorld[4] = y;
-        transformOdomToWorld[5] = z;
-        mtxtranformOdomToWorld.unlock();
-
+        // 这里可以将结果像回环检测一样将匹配关系添加进因子图，帮助slam里程计优化
+        // ..... 
+ 
         publishCloud(pubMapWorld, cloudGlobalMapDS, timeLaserInfoStamp, "map");
 
-        if(icp.hasConverged() == true && icp.getFitnessScore() < historyKeyframeFitnessScore){
-            tf2::Quaternion quat_tf;
+        if(icp.hasConverged() == true && icp.getFitnessScore() < 0.03){
+            RCLCPP_INFO_STREAM(get_logger(), "ICP converg flag: " << icp.hasConverged() <<
+            ". Fitness score: " << icp.getFitnessScore());
+
+            Eigen::Affine3f transodomToWorld_New;
+            Eigen::Matrix4f icp_trans_mat = icp.getFinalTransformation();
+            Eigen::Affine3f icp_affine(icp_trans_mat); 
+            transodomToWorld_New = icp_affine * transToOdom_temp.inverse();
+            float x, y, z, roll, pitch, yaw;
+            pcl::getTranslationAndEulerAngles(transodomToWorld_New, x, y, z, roll, pitch, yaw);
+            RCLCPP_INFO_STREAM(get_logger(), "ICP pose befor: "<<"x: "<<transformOdomToWorld[3]<<"y: "<< \
+                transformOdomToWorld[4]<<"z: "<<transformOdomToWorld[5]<<"roll: "<<transformOdomToWorld[0]<< \
+                "pitch: "<<transformOdomToWorld[1]<<"yaw: "<<transformOdomToWorld[2]);
+            RCLCPP_INFO_STREAM(get_logger(), "ICP pose after: "<<"x: "<<x<<"y: "<<y<<"z: "<<z<<"roll: "<<roll<<"pitch: "<<pitch<<"yaw: "<<yaw);
+
+            mtxtranformOdomToWorld.lock();
+            transformOdomToWorld[0] = roll;
+            transformOdomToWorld[1] = pitch;
+            transformOdomToWorld[2] = yaw;
+            transformOdomToWorld[3] = x;
+            transformOdomToWorld[4] = y;
+            transformOdomToWorld[5] = z;
+            mtxtranformOdomToWorld.unlock();
+
+            /* tf2::Quaternion quat_tf;
             quat_tf.setRPY(transformOdomToWorld[0],  transformOdomToWorld[1],  transformOdomToWorld[2]);
             tf2::Transform t_odom_to_map = tf2::Transform(quat_tf, tf2::Vector3(transformOdomToWorld[3],  transformOdomToWorld[4],  transformOdomToWorld[5]));
             tf2::TimePoint time_point = tf2_ros::fromRclcpp(timeLaserInfoStamp);
@@ -728,7 +773,7 @@ public:
             geometry_msgs::msg::TransformStamped trans_odom_to_map;
             tf2::convert(temp_odom_to_map, trans_odom_to_map);
             trans_odom_to_map.child_frame_id = odometryFrame;
-            br->sendTransform(trans_odom_to_map); 
+            br->sendTransform(trans_odom_to_map);  */
         }
     }
 
@@ -737,16 +782,21 @@ public:
         pcl::PointCloud<PointType>::Ptr laserCloudIn(new pcl::PointCloud<PointType>());
         mtx_general.lock();
         *laserCloudIn += *cloudScanForInitialize;
+        // cloudScanForInitialize->clear();
         mtx_general.unlock();
 
         if(laserCloudIn->points.size() == 0){
             return; 
         }
+        // SC 没有匹配成功，应该是走不到这里来的，但多线程说不准
         if(transformInTheWorld[0] == 0 && transformInTheWorld[1] == 0 && transformInTheWorld[2] == 0 
             && transformInTheWorld[3] == 0 && transformInTheWorld[4] == 0 && transformInTheWorld[5] == 0){
+            // scManager.removeLastScancontex();
+            initializedFlag = NonInitialized;
+            assert(false && "mutil theard error.");
             return;     
         }
-        RCLCPP_DEBUG(get_logger(), "the size of lasercloud for LocalizeInitialize is %i", laserCloudIn->points.size());    
+        RCLCPP_INFO(get_logger(), "the size of lasercloud for LocalizeInitialize is %i", laserCloudIn->points.size());    
 
         pcl::NormalDistributionsTransform<PointType, PointType> ndt; 
         ndt.setTransformationEpsilon(0.01);
@@ -782,14 +832,14 @@ public:
             icp.getFitnessScore());
         RCLCPP_INFO_STREAM(get_logger(), "pose after initializing process is: " <<
             icp.getFinalTransformation());
-
+        // 当前帧在odom下的位姿，在重定位初始化没有成功的时候位置为0,姿态为imu初始化给出的，这里不加锁是重定位初始化阶段无竞争
         PointTypePose thisPose6DInOdom = trans2PointTypePose(transformTobeMapped);
 
         RCLCPP_INFO_STREAM(get_logger(), "transformTobeMapped X_Y_Z: " << transformTobeMapped[3] << " " <<
             transformTobeMapped[4] << " " << transformTobeMapped[5]); 
 
         Eigen::Affine3f T_thisPose6DInOdom = pclPointToAffine3f(thisPose6DInOdom);
-
+        // 当前帧icp精细化匹配后在世界坐标系的位姿
         Eigen::Affine3f T_thisPose6DInMap;
         T_thisPose6DInMap = icp.getFinalTransformation();
         float x_g, y_g, z_g, R_g, P_g, Y_g;
@@ -801,7 +851,7 @@ public:
         transformInTheWorld[4] = y_g;
         transformInTheWorld[5] = z_g;
 
-        Eigen::Affine3f transOdomToMap = T_thisPose6DInMap * T_thisPose6DInOdom.inverse();
+        Eigen::Affine3f transOdomToMap = T_thisPose6DInMap * T_thisPose6DInOdom.inverse();  // odom在世界坐标系的位姿
         float deltax, deltay, deltaz, deltaR, deltaP, deltaY;
         pcl::getTranslationAndEulerAngles(transOdomToMap, deltax, deltay, deltaz, deltaR, deltaP, deltaY);
 
@@ -815,11 +865,12 @@ public:
         mtxtranformOdomToWorld.unlock();
         RCLCPP_INFO_STREAM(get_logger(), "The pose of odom relative to Map x:" << transformOdomToWorld[3]
             <<" y:" << transformOdomToWorld[4] << " z:" << transformOdomToWorld[5]);
-        publishCloud(pubLaserCloudInWorld, result_icp, timeLaserInfoStamp, "map");
-        publishCloud(pubMapWorld, cloudGlobalMapDS, timeLaserInfoStamp, "map");
-
+        publishCloud(pubLaserCloudInWorld, result_icp, timeLaserInfoStamp, "map");  // 发布当前帧点云在全局地图的匹配结果点云
+        publishCloud(pubMapWorld, cloudGlobalMapDS, timeLaserInfoStamp, "map"); // 发布先验静态全局地图
+        // 这里表示icp精细化匹配失败
         if(icp.hasConverged() == false || icp.getFitnessScore() > historyKeyframeFitnessScore){
-            initializedFlag = Initializing;
+            scManager.removeLastScancontex();
+            initializedFlag = NonInitialized;
             RCLCPP_INFO_STREAM(get_logger(), "Initializing Fail " << icp.hasConverged());
             return; 
         }
@@ -866,12 +917,15 @@ public:
     }
 
     void performSCLoopClosure(){
-        auto detectResult = scManager.detectLoopClosureID();
-        int loopKeyCur = scManager.polarcontexts_.size() - 1;
-        int loopKeyPre = detectResult.first;
-        float yawDiffRad = detectResult.second;
-        if(loopKeyPre == -1){
+        auto detectResult = scManager.detectLoopClosureID(); // 为新加入的当前帧做描述子匹配
+        int loopKeyCur = scManager.polarcontexts_.size() - 1; // 当前帧在SC中id
+        int loopKeyPre = detectResult.first;    // 匹配到的描述子id
+        float yawDiffRad = detectResult.second; // 没用到，匹配分数
+        if(loopKeyPre == -1){   // -1 表示没有匹配到的帧，循环匹配的话这里就该做回退
             RCLCPP_INFO_STREAM(get_logger(), "SC loop not found");
+            scManager.removeLastScancontex();
+            initializedFlag = NonInitialized;
+            cloudScanForInitialize->clear();
             return; 
         }
         RCLCPP_INFO_STREAM(get_logger(), "SC loop found between " << loopKeyCur << " and " << loopKeyPre);
@@ -880,7 +934,7 @@ public:
         pcl::PointCloud<PointType>::Ptr prevKeyframeCloud(new pcl::PointCloud<PointType>());
 
         int base_key = 0;
-        Eigen::MatrixXd pose_temp = matrix_poses.row(loopKeyPre); // 从位姿图中获取关键帧位姿
+        Eigen::MatrixXd pose_temp = matrix_poses.row(loopKeyPre); // 从位姿图中获取匹配到的关键帧位姿
         Eigen::Quaterniond q_temp(pose_temp(7), pose_temp(4), pose_temp(5), pose_temp(6));
         Eigen::Vector3d euler_angles = q_temp.toRotationMatrix().eulerAngles(2, 1, 0);
 
@@ -891,13 +945,16 @@ public:
         pointTypePose_temp.roll = euler_angles[2];
         pointTypePose_temp.pitch = euler_angles[1];
         pointTypePose_temp.yaw = euler_angles[0];
-        *cureKeyframeCloud += *transformPointCloud(laserCloudRawDS, &pointTypePose_temp); // 将点云转换到匹配关键帧下
-
+        *cureKeyframeCloud += *transformPointCloud(laserCloudRawDS, &pointTypePose_temp); // 将当前点云转换到匹配关键帧下
+        // 从匹配到的帧附近加入前后几帧，构成一个用于匹配的局部地图
         loopFindNearKeyframesWithRespectTo(prevKeyframeCloud, loopKeyPre, historyKeyframeSearchNum, base_key);
         if(cureKeyframeCloud->size() < 300 || prevKeyframeCloud->size() < 1000){
+            scManager.removeLastScancontex();
+            initializedFlag = NonInitialized;
+            cloudScanForInitialize->clear();
             return; 
         }
-
+        /******下面就是一个icp过程了 */
         static pcl::IterativeClosestPoint<PointType, PointType> icp;
         icp.setMaxCorrespondenceDistance(150); // use a value can cover 2*historyKeyframeSearchNum range in meter 
         icp.setMaximumIterations(100);
@@ -909,17 +966,20 @@ public:
         icp.setInputTarget(prevKeyframeCloud);
         pcl::PointCloud<PointType>::Ptr result_icp(new pcl::PointCloud<PointType>());
         icp.align(*result_icp);
-        // TODO 此处即使SC匹配到了，但getFintessScore匹配得分依旧很大，不满足阈值
+        // TODO 此处即使SC匹配到了，但getFintessScore匹配得分依旧很大，不满足阈值，同样要做回退
         if(icp.hasConverged()==false || icp.getFitnessScore()>historyKeyframeFitnessScore){
+            scManager.removeLastScancontex();
+            initializedFlag = NonInitialized;
+            cloudScanForInitialize->clear();
             RCLCPP_INFO_STREAM(get_logger(), "ICP fitness test failed " << icp.getFitnessScore() <<
                 ">" << historyKeyframeFitnessScore << ". Reject");
             return; 
         }
-        else{
+        else{   // icp 匹配成功且满足阈值
             RCLCPP_INFO_STREAM(get_logger(), "ICP fitness test passed " << icp.getFitnessScore() <<
                 "<" << historyKeyframeFitnessScore << ". Add in"); 
         }
-
+        // 将匹配到的相对位姿做“加”运算得到当前帧在世界坐标系的位姿
         float x, y, z, roll, pitch, yaw;
         Eigen::Affine3f correctionLidarFrame;
         correctionLidarFrame = icp.getFinalTransformation();
@@ -936,6 +996,7 @@ public:
 
         RCLCPP_DEBUG_STREAM(get_logger(), "The pose loop is x:" << x << " y:" << y
             << " z:" << z);
+        initializedFlag = Initializing;
     }
 
     void performLoopClosure()
@@ -1024,7 +1085,7 @@ public:
         int loopKeyCur = copy_cloudKeyPoses3D->size() - 1;
         int loopKeyPre = -1;
 
-        // check loop constraint added before
+        // loopKeyCur是不是最新的回环关系，不是则跳过
         auto it = loopIndexContainer.find(loopKeyCur);
         if (it != loopIndexContainer.end())
             return false;
@@ -2135,8 +2196,8 @@ public:
         pubLaserOdometryGlobal->publish(laserOdometryROS);
 
 
-        PointTypePose thisPose6DInOdom = trans2PointTypePose(transformTobeMapped); 
-        Eigen::Affine3f T_thisPose6DInOdom = pclPointToAffine3f(thisPose6DInOdom);
+        // PointTypePose thisPose6DInOdom = trans2PointTypePose(transformTobeMapped); 
+        // Eigen::Affine3f T_thisPose6DInOdom = pclPointToAffine3f(thisPose6DInOdom);
         mtxtranformOdomToWorld.lock();
         PointTypePose thisPose6DInWorld = trans2PointTypePose(transformOdomToWorld);
         mtxtranformOdomToWorld.unlock();

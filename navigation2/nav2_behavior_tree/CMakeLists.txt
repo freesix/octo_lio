@@ -84,6 +84,12 @@ list(APPEND plugin_libs nav2_follow_path_action_bt_node)
 add_library(nav2_back_up_action_bt_node SHARED plugins/action/back_up_action.cpp)
 list(APPEND plugin_libs nav2_back_up_action_bt_node)
 
+add_library(nav2_collision_back_action_bt_node SHARED plugins/action/collision_back_action.cpp)
+list(APPEND plugin_libs nav2_collision_back_action_bt_node)
+
+add_library(nav2_pub_costmap_trigger_bt_node SHARED plugins/action/pub_costmap_trigger.cpp)
+list(APPEND plugin_libs nav2_pub_costmap_trigger_bt_node)
+
 add_library(nav2_drive_on_heading_bt_node SHARED plugins/action/drive_on_heading_action.cpp)
 list(APPEND plugin_libs nav2_drive_on_heading_bt_node)
 
@@ -135,6 +141,9 @@ list(APPEND plugin_libs nav2_is_battery_charging_condition_bt_node)
 add_library(nav2_is_battery_low_condition_bt_node SHARED plugins/condition/is_battery_low_condition.cpp)
 list(APPEND plugin_libs nav2_is_battery_low_condition_bt_node)
 
+add_library(nav2_is_collision_condition_bt_node SHARED plugins/condition/is_collision.cpp)
+list(APPEND plugin_libs nav2_is_collision_condition_bt_node)
+
 add_library(nav2_reinitialize_global_localization_service_bt_node SHARED plugins/action/reinitialize_global_localization_service.cpp)
 list(APPEND plugin_libs nav2_reinitialize_global_localization_service_bt_node)
 
@@ -161,6 +170,13 @@ list(APPEND plugin_libs nav2_path_longer_on_approach_bt_node)
 
 add_library(nav2_recovery_node_bt_node SHARED plugins/control/recovery_node.cpp)
 list(APPEND plugin_libs nav2_recovery_node_bt_node)
+
+add_library(nav2_three_cobblers_bt_node SHARED plugins/control/three_cobblers.cpp)
+list(APPEND plugin_libs nav2_three_cobblers_bt_node)
+
+add_library(nav2_collision_recovery_bt_node SHARED plugins/control/collision_recovery.cpp)
+list(APPEND plugin_libs nav2_collision_recovery_bt_node)
+
 
 add_library(nav2_navigate_to_pose_action_bt_node SHARED plugins/action/navigate_to_pose_action.cpp)
 list(APPEND plugin_libs nav2_navigate_to_pose_action_bt_node)

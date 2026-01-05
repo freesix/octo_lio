@@ -18,6 +18,7 @@ def generate_launch_description():
     namespace = LaunchConfiguration('namespace')
     use_namespace = LaunchConfiguration('use_namespace')
     map_yaml_file = LaunchConfiguration('map')
+    mask_yaml_file = LaunchConfiguration('mask')
     use_sim_time = LaunchConfiguration('use_sim_time')
     params_file = LaunchConfiguration('params_file')
     autostart = LaunchConfiguration('autostart')
@@ -53,9 +54,15 @@ def generate_launch_description():
     declare_map_yaml_cmd = DeclareLaunchArgument(
         'map',
         default_value=os.path.join(
-            bringup_dir, 'maps', 'test_map.yaml'),
+            bringup_dir, 'maps', 'map.yaml'),
         description='Full path to map file to load')
 
+    declare_mask_yaml_file_cmd = DeclareLaunchArgument(
+        'mask',
+        default_value=os.path.join(
+            bringup_dir, 'maps', 'mask.yaml'),
+        description='Full path to filter mask yaml file to load')
+    
     declare_use_sim_time_cmd = DeclareLaunchArgument(
         'use_sim_time',
         default_value='False',
@@ -141,6 +148,19 @@ def generate_launch_description():
                           'use_composition': use_composition,
                           'use_respawn': use_respawn}.items())
 
+    mask_cmd = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(
+            os.path.join(launch_dir, 'fd_mask.launch.py')),
+        launch_arguments={'namespace': namespace,
+                          'use_namespace': use_namespace,
+                          'map': map_yaml_file,
+                          'mask': mask_yaml_file,
+                          'use_sim_time': use_sim_time,
+                          'params_file': params_file,
+                          'autostart': autostart,
+                          'use_composition': use_composition,
+                          'use_respawn': use_respawn}.items())
+ 
     # Create the launch description and populate
     ld = LaunchDescription()
 
@@ -148,6 +168,7 @@ def generate_launch_description():
     ld.add_action(declare_namespace_cmd)
     ld.add_action(declare_use_namespace_cmd)
     ld.add_action(declare_map_yaml_cmd)
+    ld.add_action(declare_mask_yaml_file_cmd)
     ld.add_action(declare_use_sim_time_cmd)
     ld.add_action(declare_params_file_cmd)
     ld.add_action(declare_autostart_cmd)
@@ -163,7 +184,8 @@ def generate_launch_description():
 
     # Add the actions to launch all of the navigation nodes
     # ld.add_action(start_robot_state_publisher_cmd)
-    ld.add_action(rviz_cmd)
+    # ld.add_action(rviz_cmd)
     ld.add_action(bringup_cmd)
+    # ld.add_action(mask_cmd)
 
     return ld

@@ -10,10 +10,11 @@ def generate_launch_description():
     # lakibeam_dir = get_package_share_directory('lakibeam1')
     # serial_imu_dir = get_package_share_directory('serial_imu')
     # serial_imu_old_dir = get_package_share_directory('serial_imu_old')
-    motor_dir = get_package_share_directory('motor_drive')
+    motor_dir = get_package_share_directory('motor_drive_v2')
     teleop_joy_dir = get_package_share_directory('teleop_twist_joy')
     livox_dir = get_package_share_directory('livox_ros_driver2')
     lio_sam_dir = get_package_share_directory('lio_sam')
+    octomap_server2 = get_package_share_directory('octomap_server2')
 
     # build octomap use terrain analysis result, that is, intensity field is used as height field
     octomap_server_node = Node(
@@ -22,7 +23,7 @@ def generate_launch_description():
         output='screen',
         parameters=[{
             "frame_id": "map",#! MUST SET TO MAP
-            "base_frame_id": "sensor_at_scan",#! THIE MUST BE SPECIFIED IF YOU WANT TO SAVE MAP
+            "base_frame_id": "base_link",#! THIE MUST BE SPECIFIED IF YOU WANT TO SAVE MAP
             # "use_height_map":False,
             # "colored_map":False,
             # "color_factor":0.8,
@@ -31,9 +32,9 @@ def generate_launch_description():
             # "point_cloud_min_y":-10.0,
             # "point_cloud_max_y":10.0,
             "point_cloud_min_z":0.15,
-            # "point_cloud_max_z":100.0,
-            # "occupancy_min_z":1.0,
-            # "occupancy_max_z":100.0,
+            "point_cloud_max_z":10.0,
+            "occupancy_min_z":0.15,
+            "occupancy_max_z":0.25,
             # "min_x_size":0.0,
             # "min_y_size":0.0,
             "filter_speckles":True,
@@ -42,8 +43,8 @@ def generate_launch_description():
             # "ground_filter.angle":0.15,
             # "ground_filter.plane_distance": 0.07, 
             # "sensor_model.max_range": 5.0,
-            # "sensor_model.hit": 0.7,
-            # "sensor_model.miss": 0.4,
+            "sensor_model.hit": 0.55,
+            "sensor_model.miss": 0.49,
             # "sensor_model.min": 0.12,
             # "sensor_model.max": 0.97, 
             # "compress_map": True,
@@ -53,7 +54,7 @@ def generate_launch_description():
             # "publish_free_space": False,
             # "octomap_path", ""
         }],
-            remappings=[('/cloud_in', '/lio_sam/mapping/cloud_registered')]
+            remappings=[('/cloud_in', '/lio_sam/mapping/cloud_registered_raw')]
     )
 
 
@@ -82,14 +83,18 @@ def generate_launch_description():
             PythonLaunchDescriptionSource(os.path.join(
                 livox_dir, 'launch_ROS2', 'msg_MID360_launch.py'))     
         ),
-        
+        IncludeLaunchDescription(
+                    PythonLaunchDescriptionSource(os.path.join(
+                        lio_sam_dir, 'launch', 'runSCLoop.launch.py'))),
+
         TimerAction(
             period=5.0,
             actions=[
-                IncludeLaunchDescription(
-                    PythonLaunchDescriptionSource(os.path.join(
-                        lio_sam_dir, 'launch', 'runSCLoop.launch.py'))),
-                octomap_server_node 
+                octomap_server_node
+                # IncludeLaunchDescription(
+                    # PythonLaunchDescriptionSource(os.path.join(
+                        # octomap_server2, 'launch', 'octomap_server_launch.py')) 
+                    # ) 
             ]
         ) 
     ])

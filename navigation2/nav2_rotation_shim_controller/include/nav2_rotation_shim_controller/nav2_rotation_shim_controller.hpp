@@ -21,6 +21,7 @@
 #include <algorithm>
 #include <mutex>
 #include <limits>
+#include <angles/angles.h>
 
 #include "rclcpp/rclcpp.hpp"
 #include "pluginlib/class_loader.hpp"
@@ -91,7 +92,7 @@ public:
     const geometry_msgs::msg::PoseStamped & pose,
     const geometry_msgs::msg::Twist & velocity,
     nav2_core::GoalChecker * /*goal_checker*/) override;
-
+ 
   /**
    * @brief nav2_core setPlan - Sets the global plan
    * @param path The global plan

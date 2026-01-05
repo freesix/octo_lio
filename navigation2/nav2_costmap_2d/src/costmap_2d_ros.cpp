@@ -189,6 +189,7 @@ Costmap2DROS::on_configure(const rclcpp_lifecycle::State & /*state*/)
   // Then load and add the plug-ins to the costmap
   for (unsigned int i = 0; i < plugin_names_.size(); ++i) {
     RCLCPP_INFO(get_logger(), "Using plugin \"%s\"", plugin_names_[i].c_str());
+    // RCLCPP_INFO(get_logger(), "\033[31mUsing plugin \"%s\"\033[0m", plugin_names_[i].c_str());
 
     std::shared_ptr<Layer> plugin = plugin_loader_.createSharedInstance(plugin_types_[i]);
 

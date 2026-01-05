@@ -122,6 +122,10 @@ public:
 
     // for ltmapper 
     const Eigen::MatrixXd& getConstRefRecentSCD(void);
+    /**
+     * @brief 删除最后一个SC描述子的所有关联信息（特征、索引键、检索树数据等）
+     */
+    bool removeLastScancontex(void);
 
 public:
     // hyper parameters ()

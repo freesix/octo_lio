@@ -48,8 +48,8 @@ MapSaver::MapSaver(const rclcpp::NodeOptions & options)
 
   // Declare the node parameters
   declare_parameter("save_map_timeout", 2.0);
-  declare_parameter("free_thresh_default", 0.25);
-  declare_parameter("occupied_thresh_default", 0.65);
+  declare_parameter("free_thresh_default", 0.45);
+  declare_parameter("occupied_thresh_default", 0.55);
   declare_parameter("map_subscribe_transient_local", true);
 }
 

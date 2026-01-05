@@ -24,8 +24,8 @@ def generate_launch_description():
     use_sim_time = True
     autostart = True
     save_map_timeout = 2.0
-    free_thresh_default = 0.25
-    occupied_thresh_default = 0.65
+    free_thresh_default = 0.45
+    occupied_thresh_default = 0.55
 
     # Nodes launching commands
     start_map_saver_server_cmd = launch_ros.actions.Node(

@@ -58,11 +58,11 @@ void RotationShimController::configure(
   nav2_util::declare_parameter_if_not_declared(
     node, plugin_name_ + ".forward_sampling_distance", rclcpp::ParameterValue(0.5));
   nav2_util::declare_parameter_if_not_declared(
-    node, plugin_name_ + ".rotate_to_heading_angular_vel", rclcpp::ParameterValue(1.8));
+    node, plugin_name_ + ".rotate_to_heading_angular_vel", rclcpp::ParameterValue(2.0));
   nav2_util::declare_parameter_if_not_declared(
-    node, plugin_name_ + ".max_angular_accel", rclcpp::ParameterValue(3.2));
+    node, plugin_name_ + ".max_angular_accel", rclcpp::ParameterValue(4.0));
   nav2_util::declare_parameter_if_not_declared(
-    node, plugin_name_ + ".simulate_ahead_time", rclcpp::ParameterValue(1.0));
+    node, plugin_name_ + ".simulate_ahead_time", rclcpp::ParameterValue(0.5));
   nav2_util::declare_parameter_if_not_declared(
     node, plugin_name_ + ".primary_controller", rclcpp::PARAMETER_STRING);
   nav2_util::declare_parameter_if_not_declared(
@@ -179,6 +179,7 @@ geometry_msgs::msg::TwistStamped RotationShimController::computeVelocityCommands
         double angular_distance_to_heading = angles::shortest_angular_distance(pose_yaw, goal_yaw);
 
         auto cmd_vel = computeRotateToHeadingCommand(angular_distance_to_heading, pose, velocity);
+        cmd_vel.twist.angular.z = cmd_vel.twist.angular.z * 3;
         last_angular_vel_ = cmd_vel.twist.angular.z;
         return cmd_vel;
       }
@@ -210,6 +211,7 @@ geometry_msgs::msg::TwistStamped RotationShimController::computeVelocityCommands
           "Robot is not within the new path's rough heading, rotating to heading...");
         in_rotation_ = true;
         auto cmd_vel = computeRotateToHeadingCommand(angular_distance_to_heading, pose, velocity);
+        cmd_vel.twist.angular.z = cmd_vel.twist.angular.z * 5;
         last_angular_vel_ = cmd_vel.twist.angular.z;
         return cmd_vel;
       } else {
@@ -304,7 +306,6 @@ RotationShimController::computeRotateToHeadingCommand(
   const double max_feasible_angular_speed = current + max_angular_accel_ * dt;
   cmd_vel.twist.angular.z =
     std::clamp(angular_vel, min_feasible_angular_speed, max_feasible_angular_speed);
-
   isCollisionFree(cmd_vel, angular_distance_to_heading, pose);
   return cmd_vel;
 }

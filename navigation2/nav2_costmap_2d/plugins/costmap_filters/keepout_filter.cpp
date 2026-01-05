@@ -156,9 +156,10 @@ void KeepoutFilter::process(
 
   if (!mask_costmap_) {
     // Show warning message every 2 seconds to not litter an output
-    RCLCPP_WARN_THROTTLE(
-      logger_, *(clock_), 2000,
-      "KeepoutFilter: Filter mask was not received");
+    // RCLCPP_WARN_THROTTLE(
+      // logger_, *(clock_), 2000,
+      // "KeepoutFilter: Filter mask was not received");
+    //TODO
     return;
   }
 

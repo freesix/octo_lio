@@ -89,6 +89,7 @@ add_library(layers SHARED
   plugins/voxel_layer.cpp
   plugins/range_sensor_layer.cpp
   plugins/denoise_layer.cpp
+  plugins/collision_obs.cpp
 )
 add_library(${PROJECT_NAME}::layers ALIAS layers)
 ament_target_dependencies(layers
@@ -102,6 +103,7 @@ add_library(filters SHARED
   plugins/costmap_filters/keepout_filter.cpp
   plugins/costmap_filters/speed_filter.cpp
   plugins/costmap_filters/binary_filter.cpp
+  plugins/costmap_filters/forward_obs.cpp
 )
 add_library(${PROJECT_NAME}::filters ALIAS filters)
 

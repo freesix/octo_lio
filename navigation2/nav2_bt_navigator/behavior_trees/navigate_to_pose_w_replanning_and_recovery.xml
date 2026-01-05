@@ -9,13 +9,30 @@
     <RecoveryNode number_of_retries="6" name="NavigateRecovery">
       <PipelineSequence name="NavigateWithReplanning">
         <RateController hz="1.0">
-          <RecoveryNode number_of_retries="1" name="ComputePathToPose">
+          <RecoveryNode number_of_retries="2" name="ComputePathToPose">
             <ComputePathToPose goal="{goal}" path="{path}" planner_id="GridBased"/>
             <ClearEntireCostmap name="ClearGlobalCostmap-Context" service_name="global_costmap/clear_entirely_global_costmap"/>
           </RecoveryNode>
         </RateController>
         <RecoveryNode number_of_retries="1" name="FollowPath">
-          <FollowPath path="{path}" controller_id="FollowPath"/>
+          <CollisionRecovery number_of_retries="0" collision_topic="/collision_trigger" name="FollowPathWithCollisionCheck">
+            <FollowPath path="{path}" controller_id="FollowPath"/>
+            <Sequence name="Recovery">
+              <Wait wait_duration="5"/>
+              <!-- <ClearEntireCostmap name="ClearLocalCostmap" service_name="local_costmap/clear_entirely_local_costmap"/> -->
+              <!-- <ClearEntireCostmap name="ClearGlobalCostmap" service_name="global_costmap/clear_entirely_global_costmap"/> -->
+              <!-- <BackUp backup_dist="0.30" backup_speed="0.05"/> -->
+              <CollisionBack backup_dist="0.30" backup_speed="0.05"/>
+              <PubCostmapTrigger topic_name="costmap_trigger"/>
+            </Sequence>
+            <!-- <BackUp backup_dist="0.30" backup_speed="0.05"/> -->
+          </CollisionRecovery>
+          <!-- <ThreeCobblers name="FollowPathWithCollisionCheck"> -->
+            <!-- <FollowPath path="{path}" controller_id="FollowPath"/> -->
+            <!-- <IsCollision collision_topic="/collision_trigger"/> -->
+            <!-- <BackUp backup_dist="0.30" backup_speed="0.05"/> -->
+          <!-- </ThreeCobblers> -->
+          <!-- <FollowPath path="{path}" controller_id="FollowPath"/> -->
           <ClearEntireCostmap name="ClearLocalCostmap-Context" service_name="local_costmap/clear_entirely_local_costmap"/>
         </RecoveryNode>
       </PipelineSequence>

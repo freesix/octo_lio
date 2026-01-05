@@ -18,6 +18,9 @@
     <class type="nav2_costmap_2d::DenoiseLayer" base_class_type="nav2_costmap_2d::Layer">
       <description>Filters noise-induced freestanding obstacles or small obstacles groups</description>
     </class>
+    <class type="nav2_costmap_2d::CollisionLayer" base_class_type="nav2_costmap_2d::Layer">
+      <description> Listens to collision targger and create a obstacle layer.</description>
+    </class>
   </library>
 
   <library path="filters">
@@ -29,6 +32,9 @@
     </class>
     <class type="nav2_costmap_2d::BinaryFilter"    base_class_type="nav2_costmap_2d::Layer">
       <description>Binary flip filter.</description>
+    </class>
+    <class type="nav2_costmap_2d::ForwardObs"      base_class_type="nav2_costmap_2d::Layer">
+      <description>Forward Obs.</description>
     </class>
   </library>
 </class_libraries>

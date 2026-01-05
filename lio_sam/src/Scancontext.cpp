@@ -345,4 +345,22 @@ std::pair<int, float> SCManager::detectLoopClosureID ( void )
 
 } // SCManager::detectLoopClosureID
 
+bool SCManager::removeLastScancontex(void){
+    if(polarcontexts_.empty()){
+        cout<<"[Not SC] Scancontex is empty."<<endl;
+        return false;
+    }
+    polarcontexts_.pop_back();
+    polarcontext_invkeys_.pop_back();
+    polarcontext_vkeys_.pop_back();
+    if(!polarcontext_invkeys_mat_.empty())polarcontext_invkeys_mat_.pop_back();
+    // if(!polarcontexts_timestamp_.empty())polarcontexts_timestamp_.pop_back();
+
+    // polarcontext_tree_.reset();
+    // polarcontext_invkeys_to_search_.clear();
+    
+    cout<<"[SC NUM] removed last sc, remain "<<polarcontexts_.size()<<std::endl;
+    return true;
+}
+
 // } // namespace SC2

@@ -98,16 +98,16 @@ def generate_launch_description():
     load_nodes = GroupAction(
         condition=IfCondition(PythonExpression(['not ', use_composition])),
         actions=[
-            Node(
-                package='nav2_map_server',
-                executable='map_server',
-                name='map_server',
-                output='screen',
-                respawn=use_respawn,
-                respawn_delay=2.0,
-                parameters=[configured_params],
-                arguments=['--ros-args', '--log-level', log_level],
-                remappings=remappings),
+            # Node(
+                # package='nav2_map_server',
+                # executable='map_server',
+                # name='map_server',
+                # output='screen',
+                # respawn=use_respawn,
+                # respawn_delay=2.0,
+                # parameters=[configured_params],
+                # arguments=['--ros-args', '--log-level', log_level],
+                # remappings=remappings),
             Node(
                 package='nav2_lifecycle_manager',
                 executable='lifecycle_manager',
@@ -130,12 +130,12 @@ def generate_launch_description():
         condition=IfCondition(use_composition),
         target_container=container_name_full,
         composable_node_descriptions=[
-            ComposableNode(
-                package='nav2_map_server',
-                plugin='nav2_map_server::MapServer',
-                name='map_server',
-                parameters=[configured_params],
-                remappings=remappings),
+            # ComposableNode(
+                # package='nav2_map_server',
+                # plugin='nav2_map_server::MapServer',
+                # name='map_server',
+                # parameters=[configured_params],
+                # remappings=remappings),
             ComposableNode(
                 package='nav2_lifecycle_manager',
                 plugin='nav2_lifecycle_manager::LifecycleManager',
@@ -165,7 +165,7 @@ def generate_launch_description():
     ld.add_action(declare_log_level_cmd)
 
     # Add the actions to launch all of the localiztion nodes
-    ld.add_action(load_nodes)
-    ld.add_action(load_composable_nodes)
+    # ld.add_action(load_nodes)
+    # ld.add_action(load_composable_nodes)
 
     return ld

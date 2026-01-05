@@ -1365,7 +1365,8 @@ public:
             pcl::PointCloud<PointType>::Ptr cloudtmp(new pcl::PointCloud<PointType>());
             pcl::PassThrough<PointType> pass;
             pass.setFilterFieldName("z");
-            pass.setFilterLimits(-std::numeric_limits<float>::max(), 1.5);
+            // pass.setFilterLimits(-std::numeric_limits<float>::max(), 1.5);
+            pass.setFilterLimits(0.15, 1.5);
             PointTypePose thisPose6D = trans2PointTypePose(transformTobeMapped);
             // *cloudOut += *transformPointCloud(laserCloudCornerLastDS,  &thisPose6D);
             // *cloudOut += *transformPointCloud(laserCloudSurfLastDS,    &thisPose6D);
@@ -1389,7 +1390,13 @@ public:
             pcl::PointCloud<PointType>::Ptr cloudOut(new pcl::PointCloud<PointType>());
             pcl::fromROSMsg(cloudInfo.cloud_deskewed, *cloudOut);
             PointTypePose thisPose6D = trans2PointTypePose(transformTobeMapped);
+            pcl::PassThrough<PointType> pass;
+            pass.setFilterFieldName("z");
+            pass.setFilterLimits(0.15, std::numeric_limits<float>::max());
             *cloudOut = *transformPointCloud(cloudOut,  &thisPose6D);
+            pass.setInputCloud(cloudOut);
+            pass.filter(*cloudOut);
+            // *cloudOut = *transformPointCloud(cloudOut,  &thisPose6D);
             publishCloud(pubCloudRegisteredRaw, cloudOut, timeLaserInfoStamp, odometryFrame);
         }
         // publish path

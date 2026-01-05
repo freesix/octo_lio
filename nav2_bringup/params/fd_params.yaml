@@ -3,7 +3,7 @@ bt_navigator:
     use_sim_time: False
     global_frame: map
     robot_base_frame: base_link
-    odom_topic: /lio_sam/mapping/odometry
+    odom_topic: /odom
     bt_loop_duration: 10
     default_server_timeout: 20
     wait_for_service_timeout: 1000
@@ -37,6 +37,9 @@ bt_navigator:
       - nav2_goal_updater_node_bt_node
       - nav2_recovery_node_bt_node
       - nav2_pipeline_sequence_bt_node
+      # - nav2_three_cobblers_bt_node
+      - nav2_collision_recovery_bt_node
+      - nav2_pub_costmap_trigger_bt_node
       - nav2_round_robin_node_bt_node
       - nav2_transform_available_condition_bt_node
       - nav2_time_expired_condition_bt_node
@@ -45,6 +48,7 @@ bt_navigator:
       - nav2_single_trigger_bt_node
       - nav2_goal_updated_controller_bt_node
       - nav2_is_battery_low_condition_bt_node
+      # - nav2_is_collision_condition_bt_node
       - nav2_navigate_through_poses_action_bt_node
       - nav2_navigate_to_pose_action_bt_node
       - nav2_remove_passed_goals_action_bt_node
@@ -59,104 +63,204 @@ bt_navigator:
       - nav2_assisted_teleop_cancel_bt_node
       - nav2_drive_on_heading_cancel_bt_node
       - nav2_is_battery_charging_condition_bt_node
+      - nav2_collision_back_action_bt_node
 
-bt_navigator_navigate_through_poses_rclcpp_node:
-  ros__parameters:
-    use_sim_time: False
+# bt_navigator_navigate_through_poses_rclcpp_node:
+  # ros__parameters:
+    # use_sim_time: False
 
-bt_navigator_navigate_to_pose_rclcpp_node:
-  ros__parameters:
-    use_sim_time: False
+# bt_navigator_navigate_to_pose_rclcpp_node:
+  # ros__parameters:
+    # use_sim_time: False
 
 
 controller_server:
   ros__parameters:
-    controller_frequency: 20.0
+    # controller server parameters (see Controller Server for more info)
+    controller_frequency: 25.0
+    min_x_velocity_threshold: 0.001
+    min_y_velocity_threshold: 0.5
+    min_theta_velocity_threshold: 0.001
+    progress_checker_plugins: ["progress_checker"] # progress_checker_plugin: "progress_checker" For Humble and older
+    goal_checker_plugins: ["goal_checker"]
+    controller_plugins: ["FollowPath"]
+    progress_checker:
+      plugin: "nav2_controller::SimpleProgressChecker"
+      required_movement_radius: 0.5
+      movement_time_allowance: 10.0
+    goal_checker:
+      plugin: "nav2_controller::SimpleGoalChecker"
+      xy_goal_tolerance: 0.05
+      yaw_goal_tolerance: 0.02
+      stateful: True
+    # DWB controller parameters
     FollowPath:
-      plugin: "nav2_mppi_controller::MPPIController"
-      time_steps: 45
-      model_dt: 0.05
-      batch_size: 1500
-      vx_std: 0.2
-      vy_std: 0.0
-      wz_std: 0.4
-      vx_max: 0.5
-      vx_min: 0.0
-      vy_max: 0.0
-      wz_max: 0.5
-      iteration_count: 1
-      prune_distance: 1.7
-      transform_tolerance: 0.1
-      temperature: 0.3
-      gamma: 0.015
-      motion_model: "DiffDrive"
-      visualize: false
-      TrajectoryVisualizer:
-        trajectory_step: 5
-        time_step: 3
-      AckermannConstraints:
-        min_turning_r: 0.2
-      critics: ["ConstraintCritic", "CostCritic", "GoalCritic", "GoalAngleCritic", "PathAlignCritic", "PathFollowCritic", "PathAngleCritic", "PreferForwardCritic", "ObstaclesCritic"]
-      ConstraintCritic:
-        enabled: true
-        cost_power: 1
-        cost_weight: 4.0
-      GoalCritic:
-        enabled: true
-        cost_power: 1
-        cost_weight: 5.0
-        threshold_to_consider: 1.4
-      GoalAngleCritic:
-        enabled: true
-        cost_power: 1
-        cost_weight: 3.0
-        threshold_to_consider: 0.5
-      PreferForwardCritic:
-        enabled: true
-        cost_power: 1
-        cost_weight: 5.0
-        threshold_to_consider: 0.5
-      ObstaclesCritic:
-        enabled: true
-        cost_power: 1
-        repulsion_weight: 1.5
-        critical_weight: 20.0
-        consider_footprint: false
-        collision_cost: 10000.0
-        collision_margin_distance: 0.1
-        near_goal_distance: 0.5
-      CostCritic:
-        enabled: true
-        cost_power: 1
-        cost_weight: 3.81
-        critical_cost: 300.0
-        consider_footprint: false
-        collision_cost: 1000000.0
-        near_goal_distance: 1.0
-      PathAlignCritic:
-      PathAlignCritic:
-        enabled: true
-        cost_power: 1
-        cost_weight: 14.0
-        max_path_occupancy_ratio: 0.05
-        trajectory_point_step: 3
-        threshold_to_consider: 0.5
-        offset_from_furthest: 20
-        use_path_orientations: false
-      PathFollowCritic:
-        enabled: true
-        cost_power: 1
-        cost_weight: 5.0
-        offset_from_furthest: 5
-        threshold_to_consider: 1.4
-      PathAngleCritic:
-        enabled: true
-        cost_power: 1
-        cost_weight: 2.0
-        offset_from_furthest: 4
-        threshold_to_consider: 0.5
-        max_angle_to_furthest: 1.0
-        forward_preference: true
+      plugin: "nav2_rotation_shim_controller::RotationShimController"
+      primary_controller: "dwb_core::DWBLocalPlanner"
+      angular_dist_threshold: 0.872
+      forward_sampling_distance: 0.5
+      rotate_to_heading_angular_vel: 1.5
+      rotate_to_goal_heading: true
+      max_angular_accel: 3.2
+      simulate_ahead_time: 0.4
+      rotate_to_heading_once: true
+      # plugin: "dwb_core::DWBLocalPlanner"
+      debug_trajectory_details: True
+      min_vel_x: -0.3
+      min_vel_y: 0.0
+      max_vel_x: 1.0
+      max_vel_y: 0.0
+      max_vel_theta: 1.5
+      min_speed_xy: -0.3
+      max_speed_xy: 1.0
+      min_speed_theta: 0.0
+      acc_lim_x: 2.5
+      acc_lim_y: 0.0
+      acc_lim_theta: 3.0
+      decel_lim_x: -0.3
+      decel_lim_y: 0.0
+      decel_lim_theta: -3.2
+      vx_samples: 25
+      vy_samples: 5
+      vtheta_samples: 25
+      sim_time: 1.7
+      linear_granularity: 0.04
+      angular_granularity: 0.015
+      transform_tolerance: 0.2
+      xy_goal_tolerance: 0.03
+      trans_stopped_velocity: 0.0
+      short_circuit_trajectory_evaluation: True
+      limit_vel_cmd_in_traj: False
+      stateful: True
+      critics: ["RotateToGoal", "Oscillation", "BaseObstacle", "GoalAlign", "PathAlign", "PathDist", "GoalDist"]
+      BaseObstacle.scale: 0.5
+      Oscillation.scale: 10.0
+      PathAlign.scale: 32.0
+      GoalAlign.scale: 30.0
+      PathAlign.forward_point_distance: 0.3
+      GoalAlign.forward_point_distance: 0.3
+      PathDist.scale: 32.0
+      GoalDist.scale: 40.0
+      RotateToGoal.scale: 32.0
+      RotateToGoal.slowing_factor: 3.0
+      RotateToGoal.lookahead_time: -1.0
+
+
+# controller_server:
+  # ros__parameters:
+    # controller_frequency: 25.0
+    # min_x_velocity_threshold: 0.005
+    # min_y_velocity_threshold: 0.5
+    # min_theta_velocity_threshold: 0.005
+    # progress_checker_plugins: ["progress_checker"] # progress_checker_plugin: "progress_checker" For Humble and older
+    # goal_checker_plugins: ["goal_checker"]
+    # controller_plugins: ["FollowPath"]
+    # progress_checker:
+      # plugin: "nav2_controller::PoseProgressChecker"
+      # required_movement_radius: 0.4
+      # movement_time_allowance: 2.8
+    # goal_checker:
+      # plugin: "nav2_controller::SimpleGoalChecker"
+      # xy_goal_tolerance: 0.03
+      # yaw_goal_tolerance: 0.02
+      # stateful: True
+    # FollowPath:
+      # plugin: "nav2_rotation_shim_controller::RotationShimController"
+      # primary_controller: "nav2_mppi_controller::MPPIController"
+      # angular_dist_threshold: 0.872
+      # forward_sampling_distance: 0.4
+      # rotate_to_heading_angular_vel: 1.5
+      # rotate_to_goal_heading: true
+      # max_angular_accel: 3.2
+      # simulate_ahead_time: 0.4
+      # rotate_to_heading_once: true
+      # plugin: "nav2_mppi_controller::MPPIController"
+      # time_steps: 70
+      # model_dt: 0.05
+      # batch_size: 1800
+      # vx_std: 0.3
+      # vy_std: 0.0
+      # wz_std: 0.35
+      # vx_max: 1.0
+      # vx_min: -0.2
+      # vy_max: 0.0
+      # wz_max: 2.5
+      # az_max: 3.5
+      # iteration_count: 2
+      # prune_distance: 1.6
+      # transform_tolerance: 0.28
+      # enforce_path_inversion: false
+      # inversion_xy_tolerance: 0.03
+      # inversion_yaw_tolerance: 0.05
+      # temperature: 0.25
+      # gamma: 0.015
+      # motion_model: "DiffDrive"
+      # visualize: false
+      # TrajectoryVisualizer:
+        # trajectory_step: 5
+        # time_step: 3
+      # AckermannConstraints:
+        # min_turning_r: 0.2
+      # critics: ["ConstraintCritic", "CostCritic", "GoalCritic", "GoalAngleCritic", "PathAlignCritic", "PathFollowCritic", "PathAngleCritic", "PreferForwardCritic", "ObstaclesCritic"]
+      # ConstraintCritic:
+        # enabled: true
+        # cost_power: 1
+        # cost_weight: 3.0
+      # GoalCritic:
+        # enabled: true
+        # cost_power: 1
+        # cost_weight: 18.0
+        # threshold_to_consider: 2.5
+      # GoalAngleCritic:
+        # enabled: true
+        # cost_power: 1
+        # cost_weight: 18.0
+        # threshold_to_consider: 1.5
+      # PreferForwardCritic:
+        # enabled: true
+        # cost_power: 1
+        # cost_weight: 2.0
+        # threshold_to_consider: 1.0
+      # ObstaclesCritic:
+        # enabled: true
+        # cost_power: 1
+        # repulsion_weight: 1.3
+        # critical_weight: 20.0
+        # consider_footprint: true
+        # collision_cost: 10000.0
+        # collision_margin_distance: 0.1
+        # near_goal_distance: 0.8
+      # CostCritic:
+        # enabled: true
+        # cost_power: 1
+        # cost_weight: 3.81
+        # critical_cost: 300.0
+        # consider_footprint: true
+        # collision_cost: 1000000.0
+        # near_goal_distance: 1.0
+      # PathAlignCritic:
+        # enabled: false
+        # cost_power: 1
+        # cost_weight: 14.0
+        # max_path_occupancy_ratio: 0.05
+        # trajectory_point_step: 3
+        # threshold_to_consider: 0.5
+        # offset_from_furthest: 20
+        # use_path_orientations: false
+      # PathFollowCritic:
+        # enabled: true
+        # cost_power: 1
+        # cost_weight: 2.5
+        # offset_from_furthest: 5
+        # threshold_to_consider: 2.0
+      # PathAngleCritic:
+        # enabled: true
+        # cost_power: 1
+        # cost_weight: 1.0
+        # offset_from_furthest: 3
+        # threshold_to_consider: 0.5
+        # max_angle_to_furthest: 1.2
+        # forward_preference: false
       # VelocityDeadbandCritic:
       #   enabled: true
       #   cost_power: 1
@@ -170,70 +274,70 @@ controller_server:
 local_costmap:
   local_costmap:
     ros__parameters:
-      update_frequency: 5.0 # 局部地图更新频率5hz
-      publish_frequency: 2.0 # 发布频率
+      update_frequency: 10.0 # 局部地图更新频率5hz
+      publish_frequency: 5.0 # 发布频率
       global_frame: odom # 局部地图坐标系
       robot_base_frame: base_link # 机器人本体坐标系
       use_sim_time: False
       rolling_window: true # 局部地图那个矩形框是否跟着机器人姿态旋转
       width: 6 # 局部地图大小
       height: 6
-      resolution: 0.05 # 分辨率
-      robot_radius: 0.3 # 机器人半径，这个会更小相比于全局地图的来说
-      plugins: ["voxel_layer", "inflation_layer"]
+      resolution: 0.1 # 分辨率
+      footprint: "[[0.25, 0.25], [0.25, -0.25], [-0.25, -0.25], [-0.25, 0.25]]"
+      # robot_radius: 0.30 # 机器人半径，这个会更小相比于全局地图的来说
+      # plugins: ["voxel_layer", "inflation_layer"]
+      plugins: ["obstacle_layer", "collision_obs", "inflation_layer"]
+      filters: ["keepout_filter"]
+      keepout_filter:
+        plugin: "nav2_costmap_2d::KeepoutFilter"
+        enabled: True
+        filter_info_topic: "/costmap_filter_info"
+      collision_obs:
+        plugin: "nav2_costmap_2d::CollisionLayer"
+        enabled: True
+        topic: "/costmap_trigger"
+        frame_id: "base_link"
+        front_offset: 0.9
+        size_x: 0.05
+        size_y: 0.6
+        leave_distance: 1.5 
       inflation_layer: # 膨胀层
         plugin: "nav2_costmap_2d::InflationLayer" # 膨胀层插件
         cost_scaling_factor: 3.0 # 膨胀层权重分布的因子
-        inflation_radius: 0.55 # 膨胀半径
-      voxel_layer: # 体素层，和障碍物层类似，主要是用于三维障碍物的检测
-        plugin: "nav2_costmap_2d::VoxelLayer"
-        enabled: True
-        publish_voxel_map: True 
-        origin_z: 0.0 # z轴的原点，0默认z轴原点在机器人平面上
-        z_resolution: 0.05 # z轴方向体素分辨率
-        z_voxels: 16 # z轴上体素的个数
-        max_obstacle_height: 2.0 # 最大障碍物高度
-        mark_threshold: 0 # 标记为障碍物的体素个数阈值(0表示该z轴体素上只要有一个体素有障碍物，此点上有障碍物)
-        observation_sources: pointcloud camera_left camera_right
-        # observation_sources: camera_left camera_right
-        pointcloud:  # no frame set, uses frame from message
-          # topic: /lio_sam/mapping/cloud_registered_raw  # produce error msg: can not compute xxxx, it is fine, just ignore it
-          topic: /lio_sam/deskew/cloud_deskewed
-          max_obstacle_height: 2.0
-          min_obstacle_height: 0.0
-          obstacle_max_range: 2.5
-          obstacle_min_range: 0.2
-          raytrace_max_range: 3.0
-          raytrace_min_range: 0.2
-          clearing: True
-          marking: True
-          data_type: "PointCloud2"
-        camera_left:
-          topic: /camera_left/depth/color/points
-          max_obstacle_height: 2.0
-          min_obstacle_height: 0.05
-          obstacle_max_range: 2.5
-          obstacle_min_range: 0.2
-          raytrace_max_range: 3.0
-          raytrace_min_range: 0.2
-          clearing: True
-          marking: True
-          data_type: "PointCloud2"
-        camera_right:
-          topic: /camera_right/depth/color/points
-          max_obstacle_height: 2.0
-          min_obstacle_height: 0.05
-          obstacle_max_range: 2.5
-          obstacle_min_range: 0.2
-          raytrace_max_range: 3.0
-          raytrace_min_range: 0.2
-          clearing: True
-          marking: True
-          data_type: "PointCloud2"
+        inflation_radius: 0.32 # 膨胀半径
 
+      obstacle_layer:  # 障碍物层
+        plugin: "nav2_costmap_2d::ObstacleLayer" # 障碍物层插件
+        enabled: True
+        max_obstacle_intensity: 2.0
+        min_obstacle_intensity: 0.2
+        observation_sources: lidar
+        lidar: # 激光传感器数据的一些详细配置
+          topic: /lio_sam/mapping/cloud_registered_raw # 传感器话题
+          max_obstacle_height: 1.0 # 障碍物最大的观测高度
+          clearing: True # 障碍物观测数据是否用于射线清除，一般为true(动态障碍物)
+          marking: True # 是否将观测到的数据标记为障碍物
+          data_type: "PointCloud2" # 数据类型，nav2实现的障碍物层只能接收LaserScan和PointCloud2类型的数据
+          raytrace_max_range: 5.0 # 射线清除的最大距离
+          raytrace_min_range: 0.0 # 射线清除的最小距离
+          obstacle_max_range: 4.8 # 障碍物标记的最大距离
+          obstacle_min_range: 0.0 # 障碍物标记的最小距离
+
+      # voxel_layer: # 体素层，和障碍物层类似，主要是用于三维障碍物的检测
+        # plugin: "nav2_costmap_2d::VoxelLayer"
+        # obstacle_lifetime: 1.0
+        # enabled: True
+        # publish_voxel_map: True 
+        # origin_z: 0.0 # z轴的原点，0默认z轴原点在机器人平面上
+        # z_resolution: 0.05 # z轴方向体素分辨率
+        # z_voxels: 16 # z轴上体素的个数
+        # max_obstacle_height: 2.0 # 最大障碍物高度
+        # mark_threshold: 0 # 标记为障碍物的体素个数阈值(0表示该z轴体素上只要有一个体素有障碍物，此点上有障碍物
+        # observation_sources: scan camera_left camera_right # 障碍物观测数据来源
+        # observation_sources: camera_left camera_right # 障碍物观测数据来源
         # observation_sources: scan # 障碍物观测数据来源
         # scan:
-          # topic: /scan
+          # topic: /laser/data
           # max_obstacle_height: 2.0
           # clearing: True
           # marking: True
@@ -242,6 +346,31 @@ local_costmap:
           # raytrace_min_range: 0.0
           # obstacle_max_range: 2.5
           # obstacle_min_range: 0.0
+        # camera_left:
+          # topic: /low_obs_left
+          # topic: /camera_left/depth/points
+          # max_obstacle_height: 0.5
+          # min_obstacle_height: 0.06
+          # obstacle_max_range: 1.8
+          # obstacle_min_range: 0.20
+          # raytrace_max_range: 2.0
+          # raytrace_min_range: 0.20
+          # clearing: True
+          # marking: True
+          # data_type: "PointCloud2"
+        # camera_right:
+          # topic: /low_obs_right
+          # topic: /camera_right/depth/points
+          # max_obstacle_height: 0.5
+          # min_obstacle_height: 0.06
+          # obstacle_max_range: 1.8
+          # obstacle_min_range: 0.20
+          # raytrace_max_range: 2.0
+          # raytrace_min_range: 0.20
+          # clearing: True
+          # marking: True
+          # data_type: "PointCloud2"
+
       static_layer:
         plugin: "nav2_costmap_2d::StaticLayer"
         map_subscribe_transient_local: True
@@ -250,52 +379,54 @@ local_costmap:
 global_costmap:
   global_costmap:
     ros__parameters:
-      update_frequency: 1.0  # 全局地图更新的频率
+      update_frequency: 5.0  # 全局地图更新的频率
       publish_frequency: 1.0 # 发布频率，一般用于rviz显示
       global_frame: map      # 全局地图坐标系名称
       robot_base_frame: base_link # 机器人本体坐标系名称
       use_sim_time: False # 是否使用仿真时间，在真机时设为false
-      robot_radius: 0.3 # 机器人半径
-      resolution: 0.05 # 地图分辨率，一般和slam建的图保持一致
+      footprint: "[[0.25, 0.25], [0.25, -0.25], [-0.25, -0.25], [-0.25, 0.25]]"
+      # robot_radius: 0.30 # 机器人半径
+      resolution: 0.1 # 地图分辨率，一般和slam建的图保持一致
       track_unknown_space: true
-      # plugins: ["static_layer", "obstacle_layer", "inflation_layer"] # 插件，采用了哪些地图层
-      plugins: ["static_layer", "inflation_layer"] # 插件，采用了哪些地图层
-      # obstacle_layer:  # 障碍物层
-        # plugin: "nav2_costmap_2d::ObstacleLayer" # 障碍物层插件
-        # enabled: True
-        # max_obstacle_intensity: 2.0
-        # min_obstacle_intensity: 0.2
-        # observation_sources: pointcloud
-        # pointcloud:  # no frame set, uses frame from message
-          # topic: /lio_sam/mapping/cloud_registered_raw  # produce error msg: can not compute xxxx, it is fine, just ignore it
-          # topic: /lio_sam/deskew/cloud_deskewed
-          # max_obstacle_height: 2.0
-          # min_obstacle_height: 0.0
-          # obstacle_max_range: 2.5
-          # obstacle_min_range: 0.2
-          # raytrace_max_range: 3.0
-          # raytrace_min_range: 0.2
-          # clearing: True
-          # marking: True
-          # data_type: "PointCloud2"
-        # observation_sources: scan  # 障碍物层数据来源，从哪些传感器获得
-        # scan: # 激光传感器数据的一些详细配置
-          # topic: /scan # 传感器话题
-          # max_obstacle_height: 2.0 # 障碍物最大的观测高度
-          # clearing: True # 障碍物观测数据是否用于射线清除，一般为true(动态障碍物)
-          # marking: True # 是否将观测到的数据标记为障碍物
-          # data_type: "LaserScan" # 数据类型，nav2实现的障碍物层只能接收LaserScan和PointCloud2类型的数据
-          # raytrace_max_range: 3.0 # 射线清除的最大距离
-          # raytrace_min_range: 0.0 # 射线清除的最小距离
-          # obstacle_max_range: 2.5 # 障碍物标记的最大距离
-          # obstacle_min_range: 0.0 # 障碍物标记的最小距离
+      plugins: ["static_layer", "obstacle_layer", "collision_obs", "inflation_layer"] # 插件，采用了哪些地图层
+      filters: ["keepout_filter"]
+      keepout_filter:
+        plugin: "nav2_costmap_2d::KeepoutFilter"
+        enabled: True
+        filter_info_topic: "/costmap_filter_info"
+      obstacle_layer:  # 障碍物层
+        plugin: "nav2_costmap_2d::ObstacleLayer" # 障碍物层插件
+        enabled: True
+        max_obstacle_intensity: 2.0
+        min_obstacle_intensity: 0.2
+        observation_sources: lidar
+        lidar: # 激光传感器数据的一些详细配置
+          topic: /lio_sam/mapping/cloud_registered_raw
+          max_obstacle_height: 1.0 # 障碍物最大的观测高度
+          clearing: True # 障碍物观测数据是否用于射线清除，一般为true(动态障碍物)
+          marking: True # 是否将观测到的数据标记为障碍物
+          data_type: "PointCloud2" # 数据类型，nav2实现的障碍物层只能接收LaserScan和PointCloud2类型的数据
+          raytrace_max_range: 5.0 # 射线清除的最大距离
+          raytrace_min_range: 0.0 # 射线清除的最小距离
+          obstacle_max_range: 4.8 # 障碍物标记的最大距离
+          obstacle_min_range: 0.0 # 障碍物标记的最小距离
+
       static_layer: # 静态地图层
         plugin: "nav2_costmap_2d::StaticLayer" # 静态地图层插件
         map_subscribe_transient_local: True
+      collision_obs:
+        plugin: "nav2_costmap_2d::CollisionLayer"
+        enabled: True
+        topic: "/costmap_trigger"
+        frame_id: "base_link"
+        front_offset: 0.9
+        size_x: 0.05
+        size_y: 0.6
+        leave_distance: 1.5 
       inflation_layer: # 膨胀层，它的实现是直接操纵在静态地图层上的，没有独立地图层
         plugin: "nav2_costmap_2d::InflationLayer" # 膨胀层插件
         cost_scaling_factor: 3.0 # 膨胀因子，控制膨胀层权重衰减因子
-        inflation_radius: 0.55 # 膨胀层半径
+        inflation_radius: 0.32 # 膨胀层半径
       always_send_full_costmap: True # 是否发送整张地图
 
 map_server:
@@ -304,6 +435,23 @@ map_server:
     # Overridden in launch by the "map" launch configuration or provided default value.
     # To use in yaml, remove the default "map" value in the tb3_simulation_launch.py file & provide full path to map below.
     yaml_filename: ""
+
+costmap_filter_info_server:
+  ros__parameters:
+    use_sim_time: False
+    type: 0
+    filter_info_topic: "/costmap_filter_info"
+    mask_topic: "/keepout_filter_mask"
+    base: 0.0
+    multiplier: 1.0
+
+filter_mask_server:
+  ros__parameters:
+    use_sim_time: False
+    frame_id: "map"
+    topic_name: "/keepout_filter_mask"
+    yaml_filename: "/home/ubuntu/2Dslam/src/nav2_bringup/maps/noimu_mask.yaml"
+
 
 map_saver:
   ros__parameters:
@@ -318,11 +466,27 @@ planner_server:
     expected_planner_frequency: 20.0 # 期望的规划器频率，路径计算有耗时，所以是期望达到的频率
     use_sim_time: False
     planner_plugins: ["GridBased"] # 要加载的规划器id，后续动作请求具体使用哪个规划器
+    costmap_update_timeout: 1.0
+    service_introspection_mode: "disabled"
     GridBased: # 对应上面规划器id，下面为此规划器内的一些参数设置
       plugin: "nav2_navfn_planner/NavfnPlanner" # 此id规划器具体指代的规划器插件
-      tolerance: 0.5 # 公差
+      tolerance: 0.1 # 公差
       use_astar: false
-      allow_unknown: true
+      allow_unknown: True
+      cost_factor: 3.0              # 增加对高代价区域的敏感性
+      lethal_cost: 140 
+    # GridBased:
+      # plugin: "nav2_smac_planner/SmacPlanner2D"
+      # allow_unknown: true
+      # use_astar: true
+      # motion_model_for_search: "Dubin"  # or "Lattice"
+      # angle_quantization_bins: 72
+      # downsample_costmap: false
+      # minimum_turning_radius: 0.2
+      # allow_reverse: true
+      # collision_checker:
+        # footprint: 0.3
+        # footprint_padding: 0.01
 
 smoother_server:
   ros__parameters:
@@ -339,17 +503,23 @@ behavior_server:
     costmap_topic: local_costmap/costmap_raw
     footprint_topic: local_costmap/published_footprint
     cycle_frequency: 10.0
-    behavior_plugins: ["spin", "backup", "drive_on_heading", "assisted_teleop", "wait"]
+    behavior_plugins: ["spin", "backup", "drive_on_heading", "assisted_teleop", "wait", "collision_back"]
     spin:
       plugin: "nav2_behaviors/Spin"
     backup:
       plugin: "nav2_behaviors/BackUp"
+      acceleration_limit: 0.5
+      deceleration_limit: -0.5
     drive_on_heading:
       plugin: "nav2_behaviors/DriveOnHeading"
+      acceleration_limit: 0.5
+      deceleration_limit: -0.5
     wait:
       plugin: "nav2_behaviors/Wait"
     assisted_teleop:
       plugin: "nav2_behaviors/AssistedTeleop"
+    collision_back:
+      plugin: "nav2_behaviors/CollisionBack"
     global_frame: map
     robot_base_frame: base_link
     transform_tolerance: 0.1
@@ -377,14 +547,14 @@ waypoint_follower:
 velocity_smoother:
   ros__parameters:
     use_sim_time: False
-    smoothing_frequency: 20.0
+    smoothing_frequency: 10.0
     scale_velocities: False
     feedback: "OPEN_LOOP"
-    max_velocity: [0.26, 0.0, 1.0]
-    min_velocity: [-0.26, 0.0, -1.0]
-    max_accel: [2.5, 0.0, 3.2]
-    max_decel: [-2.5, 0.0, -3.2]
-    odom_topic: /lio_sam/mapping/odometry
+    max_velocity: [0.7, 0.0, 1.8]
+    min_velocity: [-0.26, 0.0, -1.8]
+    max_accel: [1.5, 0.0, 1.5]
+    max_decel: [-1.5, 0.0, -1.5]
+    odom_topic: /odom
     odom_duration: 0.1
     deadband_velocity: [0.0, 0.0, 0.0]
-    velocity_timeout: 1.0
+    velocity_timeout: 0.2
