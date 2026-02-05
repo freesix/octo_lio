@@ -12,7 +12,8 @@ ros2 launch web_control demo_runSC.launch.py
 ros2 run nav2_map_saver map_saver_cli -t <octomap投影栅格地图话题名字> -f <想要保存的用于导航的pgm地图> --occ 0.55 --free 0.49
 ```
 将保存的pgm地图图片和yaml文件保存到nav2_bringup的maps文件夹下，然后配置launch文件中查找路径
-*导航
+
+* 导航
 ```
 ros2 launch web_control demo_runLocalize.launch.py
 ``` 
