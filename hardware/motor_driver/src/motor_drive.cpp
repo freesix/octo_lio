@@ -824,7 +824,7 @@ void MotorDrive::cmdCallback(geometry_msgs::msg::Twist::SharedPtr msg){
 		robot_vel.angular_vel_z = 0.0;   
 	}
 	else{	
-		robot_vel.linear_vel_x = msg->linear.x;
+		robot_vel.linear_vel_x = -msg->linear.x;
 		robot_vel.angular_vel_z = msg->angular.z;   
 	}
 	setRobotVelocity(robot_vel);

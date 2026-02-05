@@ -14,7 +14,7 @@ def generate_launch_description():
     teleop_joy_dir = get_package_share_directory('teleop_twist_joy')
     livox_dir = get_package_share_directory('livox_ros_driver2')
     lio_sam_dir = get_package_share_directory('lio_sam')
-    octomap_server2 = get_package_share_directory('octomap_server2')
+    # octomap_server2 = get_package_share_directory('octomap_server2')
 
     # build octomap use terrain analysis result, that is, intensity field is used as height field
     octomap_server_node = Node(
@@ -54,7 +54,8 @@ def generate_launch_description():
             # "publish_free_space": False,
             # "octomap_path", ""
         }],
-            remappings=[('/cloud_in', '/lio_sam/mapping/cloud_registered_raw')]
+            remappings=[('/cloud_in', '/lio_sam/mapping/cloud_registered_raw'),
+                        ('/projected_map', '/map')]
     )
 
 

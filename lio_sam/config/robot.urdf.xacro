@@ -18,6 +18,24 @@
     <origin xyz="0.13 0 0.19" rpy="0 0 0" />
   </joint>
 
+  <link name="camera_left_depth_optical_frame"> </link>
+  <joint name="camera_left_joint" type="fixed">
+    <parent link="base_link" />
+    <child link="camera_left_depth_optical_frame" />
+    <origin xyz="0.2745 0.04298 0.051" rpy="1.5708 0 2.18167" />
+    <!-- <origin xyz="0.268526757018066 0.0555348839735374 0.064"
+            rpy="1.5707963267949 0 1.83259571459405" /> -->
+  </joint> 
+
+  <link name="camera_right_depth_optical_frame"> </link>
+  <joint name="camera_right_joint" type="fixed">
+    <parent link="base_link" />
+    <child link="camera_right_depth_optical_frame" />
+    <origin xyz="0.2745 -0.04298 0.051" rpy="-1.5708 0 -2.18167" />
+    <!--   <origin xyz="0.268526757018066 -0.055534883973537 0.064"
+              rpy="-1.5707963267949 0 -1.83259571459405" /> -->
+  </joint> 
+
   <!-- <link name="camera_left_depth_optical_frame"> </link> -->
   <!-- <joint name="camera_left_joint" type="fixed"> -->
     <!-- <parent link="base_link" /> -->

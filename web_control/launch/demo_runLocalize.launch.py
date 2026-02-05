@@ -15,6 +15,7 @@ def generate_launch_description():
     lio_sam_dir = get_package_share_directory('lio_sam')
     point2map_dir = get_package_share_directory('point_to_map')
     realsense_dir = get_package_share_directory('realsense2_camera')
+    orbbec_dir = get_package_share_directory('orbbec_camera')
     return LaunchDescription([
         # IncludeLaunchDescription(
             # PythonLaunchDescriptionSource(os.path.join(
@@ -44,6 +45,10 @@ def generate_launch_description():
             PythonLaunchDescriptionSource(os.path.join(
                 lio_sam_dir, 'launch', 'runRelocalize.launch.py'))     
         ),
+        IncludeLaunchDescription(
+            PythonLaunchDescriptionSource(os.path.join(
+                orbbec_dir, 'launch', 'multi_camera.launch.py'))   
+        )
         # IncludeLaunchDescription(
             # PythonLaunchDescriptionSource(os.path.join(
                 # point2map_dir, 'launch', 'PointToScan.launch.py'))     

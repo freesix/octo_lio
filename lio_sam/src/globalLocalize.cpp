@@ -417,6 +417,9 @@ public:
                 performSCLoopClosure();
                  
             } 
+        }
+        if(initializedFlag == Initializing){
+            rclcpp::sleep_for(std::chrono::seconds(3));
         } 
     }
 
@@ -669,12 +672,14 @@ public:
             else{
                 rclcpp::sleep_for(std::chrono::seconds(10));
                 RCLCPP_INFO(get_logger(), "Localization"); 
-                ICPscanMatchGlobal();
+                // ICPscanMatchGlobal();
                 publishCloud(pubMapWorld, cloudGlobalMapDS, timeLaserInfoStamp, "map");
             }  
         } 
     }
-
+    /**
+     * @brief 这里是做
+     */
     void ICPscanMatchGlobal(){
         // 如果关键帧为空
         if(cloudKeyPoses3D->points.empty() == true){
