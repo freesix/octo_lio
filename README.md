@@ -1,3 +1,4 @@
+[![Bilibili](https://img.shields.io/badge/-bilibili-ff69b4?style=flat&labelColor=ff69b4&logo=bilibili&logoColor=white)](https://www.bilibili.com/video/BV1LcFvzzEsz/)
 # 前言
 这是在实机上做工程化实验，所以没有仿真环境，使用的硬件环境也各不相同，各自适配驱动和urdf。
 # 编译
